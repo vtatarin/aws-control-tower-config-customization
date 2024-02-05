@@ -14,6 +14,14 @@ Parameters:
     Default: "AWS::HealthLake::FHIRDatastore,AWS::Pinpoint::Segment,AWS::Pinpoint::ApplicationSettings"
     Type: String
 
+  ConfigRecorderRecordingFrequency:
+    Description: Config Recorder Recording Frequency
+    Default: 'CONTINUOUS'
+    Type: String
+    AllowedValues:
+      - 'CONTINUOUS'
+      - 'DAILY'
+
   CloudFormationVersion:
     Type: String
     Default: 2
@@ -50,15 +58,15 @@ Resources:
                     LOG_LEVEL: INFO
                     SQS_URL: !Ref SQSConfigRecorder
 
-    ProducerLambdaPermissions:                
+    ProducerLambdaPermissions:
       Type: AWS::Lambda::Permission
       DeletionPolicy: Retain
-      Properties: 
+      Properties:
         Action: 'lambda:InvokeFunction'
         FunctionName: !Ref ProducerLambda
         Principal: 'events.amazonaws.com'
-        SourceArn: !GetAtt ProducerEventTrigger.Arn             
-      
+        SourceArn: !GetAtt ProducerEventTrigger.Arn
+
     ConsumerLambda:
         Type: AWS::Lambda::Function
         DeletionPolicy: Retain
@@ -80,6 +88,7 @@ Resources:
                 Variables:
                     LOG_LEVEL: INFO
                     CONFIG_RECORDER_EXCLUDED_RESOURCE_LIST: !Ref ConfigRecorderExcludedResourceTypes
+                    CONFIG_RECORDER_RECORDING_FREQUENCY: !Ref ConfigRecorderRecordingFrequency
 
     ConsumerLambdaEventSourceMapping:
         Type: AWS::Lambda::EventSourceMapping
@@ -88,8 +97,8 @@ Resources:
           BatchSize: 1
           Enabled: true
           EventSourceArn: !GetAtt SQSConfigRecorder.Arn
-          FunctionName: !GetAtt ConsumerLambda.Arn                
-    
+          FunctionName: !GetAtt ConsumerLambda.Arn
+
     ProducerLambdaExecutionRole:
         Type: 'AWS::IAM::Role'
         DeletionPolicy: Retain
@@ -105,7 +114,7 @@ Resources:
                     - lambda.amazonaws.com
                 Action:
                   - 'sts:AssumeRole'
-          Path: /         
+          Path: /
           Policies:
             - PolicyName: ct_cro_producer
               PolicyDocument:
@@ -121,8 +130,8 @@ Resources:
                       - sqs:ReceiveMessage
                       - sqs:SendMessage
                       - sqs:GetQueueAttributes
-                    Resource: !GetAtt SQSConfigRecorder.Arn  
-                    
+                    Resource: !GetAtt SQSConfigRecorder.Arn
+
     ConsumerLambdaExecutionRole:
         Type: 'AWS::IAM::Role'
         DeletionPolicy: Retain
@@ -138,7 +147,7 @@ Resources:
                     - lambda.amazonaws.com
                 Action:
                   - 'sts:AssumeRole'
-          Path: /         
+          Path: /
           Policies:
             - PolicyName: policy-sts-all
               PolicyDocument:
@@ -154,7 +163,7 @@ Resources:
                       - sqs:ReceiveMessage
                       - sqs:SendMessage
                       - sqs:GetQueueAttributes
-                    Resource: !GetAtt SQSConfigRecorder.Arn   
+                    Resource: !GetAtt SQSConfigRecorder.Arn
 
     SQSConfigRecorder:
         Type: AWS::SQS::Queue
@@ -167,7 +176,7 @@ Resources:
 
     ProducerEventTrigger:
         Type: AWS::Events::Rule
-        Properties: 
+        Properties:
           Description: "Rule to trigger config recorder override producer lambda"
           EventBusName: default
           EventPattern: '{
@@ -179,10 +188,10 @@ Resources:
                         }'
           Name: !GetAtt SQSConfigRecorder.QueueName #ct_configrecorder_override_cf
           State: ENABLED
-          Targets: 
-            - 
-                Arn: 
-                  Fn::GetAtt: 
+          Targets:
+            -
+                Arn:
+                  Fn::GetAtt:
                     - "ProducerLambda"
                     - "Arn"
                 Id: "ProducerTarget"
